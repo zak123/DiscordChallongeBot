@@ -1,5 +1,6 @@
 import challonge
-
+import datetime
+from pytz import timezone
 
 challonge.set_credentials("zak123", "rA21xWv5BFa3GURVotGMmtaIb5cyGu6Y2lcPxmm6")
 
@@ -9,9 +10,7 @@ challonge.set_credentials("zak123", "rA21xWv5BFa3GURVotGMmtaIb5cyGu6Y2lcPxmm6")
 # Retrieve a tournament by its id (or its url).
 
 async def GetTournament(id):
-    tournament = challonge.tournaments.show(id)
-    print(tournament)
-    return tournament['name']
+    return challonge.tournaments.show(id)
 
 
 async def StartTournament(id):
@@ -23,10 +22,11 @@ async def StartTournament(id):
 #     return challonge.participants.index(id)
 
 
-async def GetOngoingMatches(id):
+async def GetMatches(id):
     participants = challonge.participants.index(id)
     matches = challonge.matches.index(id)
     # match ID's with names and add names to match list
+    highest_round = 0
     for participant in participants:
         id = participant['id']
         for match in matches:
@@ -34,27 +34,24 @@ async def GetOngoingMatches(id):
                 match['player1_name'] = participant['name']
             elif id == match['player2_id']:
                 match['player2_name'] = participant['name']
-    open_matches = []
 
-    # only return matches that need to be played
-    for match in matches:
-        if match['state'] == 'open':
-            open_matches.append(match)
+            if highest_round < match['round']:
+                highest_round = match['round']
 
-    return open_matches
+        for match in matches:
+            if match['round'] == highest_round:
+                match['round_string'] = 'Grand Finals'
+            elif match['round'] * -1 == highest_round:
+                match['round_string'] = 'Loser Finals'
+            elif match['round'] + 1 == highest_round:
+                match['round_string'] = 'Winner Semifinals'
+            elif match['round'] * -1 + 1 == highest_round:
+                match['round_string'] = 'Loser Semifinals'
+            elif match['round'] > 0:
+                match['round_string'] = f"Winners round {match['round']}"
+            elif match['round'] < 0:
+                match['round_string'] = f"Losers round {match['round'] * -1}"
+
+    return matches
 
 
-# # Tournaments, matches, and participants are all represented as normal Python dicts.
-# print(tournament["id"]) # 3272
-# print(tournament["name"]) # My Awesome Tournament
-# print(tournament["started_at"]) # None
-
-# # Retrieve the participants for a given tournament.
-# participants = challonge.participants.index(tournament["id"])
-# print(len(participants)) # 13
-
-# # Start the tournament and retrieve the updated information to see the effects
-# # of the change.
-# challonge.tournaments.start(tournament["id"])
-# tournament = challonge.tournaments.show(tournament["id"])
-# print(tournament["started_at"]) # 2011-07-31 16:16:02-04:00
