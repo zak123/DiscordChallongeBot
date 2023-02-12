@@ -64,9 +64,9 @@ async def update_tournament_status(ctx, matches):
     num_upcoming = 0
 
     for match in matches:
-        
+
         player_vs_string = f"{match.get('player1_name') if match.get('player1_name') else '???' } vs {match.get('player2_name') if match.get('player2_name') else '???'}"
-        
+
         if match['state'] == 'open':
             num_current += 1
             current_matches_embed.add_field(name=player_vs_string,
@@ -77,10 +77,21 @@ async def update_tournament_status(ctx, matches):
                 upcoming_matches_embed.add_field(name=player_vs_string,
                                                  value=match['round_string'], inline=True)
     if num_current > 0:
-        await ctx.send(embed=current_matches_embed)
+        await ctx.send("**Update!**", embed=current_matches_embed)
     if num_upcoming > 0:
         await ctx.send(embed=upcoming_matches_embed)
     if num_current == 0 & num_upcoming == 0:
-        await ctx.send('No matches for this tournament')
+        info = await GetTournament(current_challonge_id)
+        if info['state'] == 'awaiting_review' or info['state'] == 'complete':
+            await EndTournament(current_challonge_id)
+            results = await GetParticipants(current_challonge_id)
+            results.sort(key=lambda x: x['final_rank'], reverse=False)
+            results_message = 'The tournament is over! Thank you for playing!\n```'
+            for result in results:
+                results_message += f"#{result['final_rank']} - {result['name']}\n"
+            await ctx.send(f"{results_message}```")
+        else:
+            await ctx.send('No matches for this tournament')
+
 
 bot.run('MTA3NDA3MzQ3ODAyNzgxMjg3NA.Gjq1oB.Zapy5zsrHiAWV0Jx1PNd6Zfjf6tW2ln1ABVPp4')

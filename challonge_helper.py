@@ -17,9 +17,11 @@ async def StartTournament(id):
     tournament = challonge.tournaments.start(id)
     return f"{tournament['name']} has begun."
 
+async def EndTournament(id):
+    return challonge.tournaments.finalize(id)
 
-# async def GetParticipants(id):
-#     return challonge.participants.index(id)
+async def GetParticipants(id):
+    return challonge.participants.index(id)
 
 
 async def GetMatches(id):
