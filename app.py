@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from challonge_helper import *
+import time
 
 
 intents = discord.Intents.default()
@@ -18,20 +19,30 @@ async def get(ctx, arg):
 @bot.command()
 async def start(ctx, arg):
     # await ctx.send(await StartTournament(arg))
-    matches = await GetOngoingMatches(arg)
-    print(matches)
+    matches = []
+    tournament_ongoing = True
 
-    embed = discord.Embed(title="Ongoing Matches", url="http://challonge.com",
-                          description="Please play these matches as soon as possible!")
-    for match in matches:
-        embed.add_field(name=f"{match['player1_name']} vs {match['player2_name']}",
-                        value=f"This is a Round {match['round']} match.", inline=False)
+    await ctx.send('**__The tournament is starting! Please pay attention to this channel. Immediately play any matches that are listed here.__**')
 
-    await ctx.send(embed=embed)
+    while tournament_ongoing:
+        matches_new = await GetOngoingMatches(arg)
 
+        if matches != matches_new:
+            embed = discord.Embed(title="New Ongoing Matches", url="http://challonge.com",
+                                  description="Please play these matches as soon as possible!")
+            for match in matches_new:
+                if match['round'] > 0:
+                    embed.add_field(name=f"{match['player1_name']} vs {match['player2_name']}",
+                                    value=f"This is a round {match['round']} match.", inline=False)
+                elif match['round'] < 0:
+                    embed.add_field(name=f"{match['player1_name']} vs {match['player2_name']}",
+                                    value=f"This is a losers round {match['round'] * -1} match.", inline=False)
 
-def check_status_loop():
-    return 0
+            await ctx.send(embed=embed)
+
+            matches = matches_new
+
+        time.sleep(20)
 
 
 bot.run('MTA3NDA3MzQ3ODAyNzgxMjg3NA.Gjq1oB.Zapy5zsrHiAWV0Jx1PNd6Zfjf6tW2ln1ABVPp4')
