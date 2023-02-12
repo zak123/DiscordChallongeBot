@@ -90,6 +90,7 @@ async def update_tournament_status(ctx, matches):
             for result in results:
                 results_message += f"#{result['final_rank']} - {result['name']}\n"
             await ctx.send(f"{results_message}```")
+            exit()
         else:
             await ctx.send('No matches for this tournament')
 
