@@ -8,6 +8,8 @@ Here are the commands you can take advantage of with Tournamentor. Please be awa
 
 ## $set {challonge url}
 
+Admin only
+
     $set streetfighter5denver
 
 This sets the current tournament. The challonge URL is set when you create the tournament on the web interface. This command needs to be run everytime you start the app.
@@ -15,15 +17,21 @@ This sets the current tournament. The challonge URL is set when you create the t
 ![set command output](http://zak123.com/img/set-output.png)
 ## $status
 
+Everyone can use this command
+
 This returns the current matches that participants should immediately start playing, and also upcoming matches that have someone waiting. If you'd like this to only return current matches, set `show_upcoming_matches` to no in the config. This command requires a set tournament using the `$set` command.
 
 ![status command output](http://zak123.com/img/status-output.png)
 ## $monitor
 
+Admin only
+
 This continuously checks the status of a tournament every 15 seconds, and if an update is found, notifies the channel the same way that `$status` would. The refresh rate of 15 seconds is configurable with the config file, though be careful of rate limits on the Challonge API. This command requires a tournament be set with the `$set` command.
 
 ![enter image description here](http://zak123.com/img/monitor-output.png)
 ## $stop
+
+Admin only
 
 This stops the $monitor command.
 
