@@ -71,11 +71,15 @@ code_exception=Unexpected Error. Call Daigo for help!
 permission_error_admin=Only admins can use this command.
 
 [Options]
+assign_stream_matches_automatically=no
+show_upcoming_matches_while_monitoring=no
+only_show_new_matches_while_monitoring=yes
 show_upcoming_matches=yes
 auto_finalize_tournament_after_grand_finals=yes
 command_prefix=$
 monitor_refresh_interval=15
 ```
+
 - Save this file as `config.ini` in the same folder as the code you downloaded from github, and edit the values to what you want.
 - Open a terminal within the codes folder, and run `py app.py`
 
