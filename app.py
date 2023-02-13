@@ -55,7 +55,7 @@ async def monitor_loop(ctx):
             await update_tournament_status_discord(ctx, matches_new)
             matches = matches_new
 
-        await asyncio.sleep(15)
+        await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
 
 
 @bot.command()
@@ -113,12 +113,12 @@ async def update_tournament_status_discord(ctx, matches):
             if match['state'] == 'open':
                 num_current += 1
                 current_matches_embed.add_field(name=player_vs_string,
-                                                value=f"{match['round_string']}\n{match['id']}", inline=True)
+                                                value=match['round_string'], inline=True)
             if match['state'] == 'pending':
                 if match.get('player1_name') != None or match.get('player2_name') != None:
                     num_upcoming += 1
                     upcoming_matches_embed.add_field(name=player_vs_string,
-                                                     value=f"{match['round_string']}\n{match['id']}", inline=True)
+                                                     value=match['round_string'], inline=True)
         if num_current > 0:
             await ctx.send("**Update!**", embed=current_matches_embed)
 
