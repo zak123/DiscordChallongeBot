@@ -1,8 +1,11 @@
 import challonge
-import datetime
-from pytz import timezone
+import configparser
 
-challonge.set_credentials("zak123", "rA21xWv5BFa3GURVotGMmtaIb5cyGu6Y2lcPxmm6")
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+challonge.set_credentials(
+    config['Tokens']['challonge_username'], config['Tokens']['challonge_api_key'])
 
 
 # Tell pychallonge about your [CHALLONGE! API credentials](http://api.challonge.com/v1).
@@ -17,11 +20,19 @@ async def StartTournament(id):
     tournament = challonge.tournaments.start(id)
     return f"{tournament['name']} has begun."
 
+
 async def EndTournament(id):
     return challonge.tournaments.finalize(id)
 
+
 async def GetParticipants(id):
     return challonge.participants.index(id)
+
+
+# async def ReportMatch(tournament_id, match_id, scores_csv):
+#     print(tournament_id, match_id, scores_csv)
+#     params = {'match[scores_csv]': f"{scores_csv}"}
+#     return challonge.matches.update(tournament_id, match_id, params=params)
 
 
 async def GetMatches(id):
@@ -40,20 +51,19 @@ async def GetMatches(id):
             if highest_round < match['round']:
                 highest_round = match['round']
 
-        for match in matches:
-            if match['round'] == highest_round:
-                match['round_string'] = 'Grand Finals'
-            elif match['round'] * -1 == highest_round:
-                match['round_string'] = 'Loser Finals'
-            elif match['round'] + 1 == highest_round:
-                match['round_string'] = 'Winner Semifinals'
-            elif match['round'] * -1 + 1 == highest_round:
-                match['round_string'] = 'Loser Semifinals'
-            elif match['round'] > 0:
-                match['round_string'] = f"Winners round {match['round']}"
-            elif match['round'] < 0:
-                match['round_string'] = f"Losers round {match['round'] * -1}"
+    # challonge uses negative numbers to describe how deep a losers match is, positive for winners
+    for match in matches:
+        if match['round'] == highest_round:
+            match['round_string'] = 'Grand Finals'
+        elif match['round'] * -1 == highest_round:
+            match['round_string'] = 'Loser Finals'
+        elif match['round'] + 1 == highest_round:
+            match['round_string'] = 'Winner Semifinals'
+        elif match['round'] * -1 + 1 == highest_round:
+            match['round_string'] = 'Loser Semifinals'
+        elif match['round'] > 0:
+            match['round_string'] = f"Winners round {match['round']}"
+        elif match['round'] < 0:
+            match['round_string'] = f"Losers round {match['round'] * -1}"
 
     return matches
-
-
