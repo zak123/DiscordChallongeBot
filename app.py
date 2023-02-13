@@ -46,14 +46,42 @@ async def status(ctx):
 
 
 async def monitor_loop(ctx):
-    matches = []
+    matches = {}
 
     while monitor_enabled:
         matches_new = await GetMatches(current_challonge_id)
+        # open_matches_new = matches_new.get('open_matches')
+        # open_matches_old = matches.get('open_matches')
 
-        if matches != matches_new:
-            await update_tournament_status_discord(ctx, matches_new)
-            matches = matches_new
+        # upcoming_matches_new = matches_new.get('upcoming_matches')
+        # upcoming_matches_old = matches.get('upcoming_matches')
+
+        # stream_matches_new = matches_new.get('stream_matches')
+        # stream_matches_old = matches.get('stream_matches')
+
+        # if config['Options'].getboolean('only_show_new_matches_while_monitoring'):
+        #     if matches != matches_new:
+        #         if open_matches_new != None and open_matches_old != None:
+        #             for match in open_matches_old:
+        #                 for match_new in open_matches_new:
+        #                     if match_new['id'] == match['id']:
+        #                         open_matches_new.remove(match_new)
+                # if matches_new.get('upcoming_matches') != None and matches.get('upcoming_matches') != None:
+                #     matches_new['upcoming_matches'] = matches.get(
+                #         'upcoming_matches') - matches_new.get('upcoming_matches')
+
+                # if matches_new.get('stream_matches') != None and matches.get('stream_matches') != None:
+                #     matches_new['stream_matches'] = matches.get(
+                #         'stream_matches') - matches_new.get('stream_matches')
+        # print(matches_new)
+        if config['Options'].getboolean('show_upcoming_matches_while_monitoring'):
+            if matches != matches_new:
+                await update_tournament_status_discord(ctx, matches_new)
+                matches = matches_new
+        else:
+            if matches.get('open_matches') != matches_new.get('open_matches'):
+                await update_tournament_status_discord(ctx, matches_new, False)
+                matches = matches_new
 
         await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
 
@@ -94,38 +122,37 @@ async def stop(ctx):
 #     except Exception as err:
 #         await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
 
-
 # Reusable function that takes in the current matches and spits out upcoming/current matches for discord
-async def update_tournament_status_discord(ctx, matches):
-    try:
+async def update_tournament_status_discord(ctx, matches, show_upcoming_matches=True):
+    # try:
+    if (matches != None):
+        stream_matches_embed = discord.Embed(
+            title="Stream Match", url=current_challonge_url, description="Wait for a TO to coordinate this match!")
         current_matches_embed = discord.Embed(title="Current Matches", url=current_challonge_url,
                                               description="Please play these matches as soon as possible!")
         upcoming_matches_embed = discord.Embed(
             title="Upcoming Matches", url=current_challonge_url, description="These are on deck matches, be ready to play!")
 
-        num_current = 0
-        num_upcoming = 0
+        if len(matches.get('stream_matches')) > 0:
+            for stream_match in matches.get('stream_matches'):
+                print(stream_match)
+                stream_matches_embed.add_field(
+                    name=stream_match['player_vs_string'], value=stream_match['round_string'], inline=True)
+            await ctx.send(embed=stream_matches_embed)
 
-        for match in matches:
+        if len(matches.get('open_matches')) > 0:
+            for open_match in matches.get('open_matches'):
+                current_matches_embed.add_field(name=open_match['player_vs_string'],
+                                                value=open_match['round_string'], inline=True)
+            await ctx.send(embed=current_matches_embed)
 
-            player_vs_string = f"{match.get('player1_name') if match.get('player1_name') else '???' } vs {match.get('player2_name') if match.get('player2_name') else '???'}"
-
-            if match['state'] == 'open':
-                num_current += 1
-                current_matches_embed.add_field(name=player_vs_string,
-                                                value=match['round_string'], inline=True)
-            if match['state'] == 'pending':
-                if match.get('player1_name') != None or match.get('player2_name') != None:
-                    num_upcoming += 1
-                    upcoming_matches_embed.add_field(name=player_vs_string,
-                                                     value=match['round_string'], inline=True)
-        if num_current > 0:
-            await ctx.send("**Update!**", embed=current_matches_embed)
-
-        if num_upcoming > 0 and config['Options'].getboolean('show_upcoming_matches'):
+        if len(matches.get('upcoming_matches')) > 0 and config['Options'].getboolean('show_upcoming_matches') and show_upcoming_matches:
+            for upcoming_match in matches.get('upcoming_matches'):
+                upcoming_matches_embed.add_field(name=upcoming_match['player_vs_string'],
+                                                 value=upcoming_match['round_string'], inline=True)
             await ctx.send(embed=upcoming_matches_embed)
 
-        if num_current == 0 & num_upcoming == 0:
+        if len(matches.get('open_matches')) == 0 and len(matches.get('upcoming_matches')) == 0 and len(matches.get('stream_matches')) == 0:
             info = await GetTournament(current_challonge_id)
 
             if info['state'] == 'awaiting_review' or info['state'] == 'complete':
@@ -145,8 +172,11 @@ async def update_tournament_status_discord(ctx, matches):
                 monitor_enabled = False
             else:
                 await ctx.send('No matches for this tournament')
-    except Exception as err:
-        await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
+    else:
+        await ctx.send('Please start the tournament!')
+
+    # except Exception as err:
+    #     await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
 
 
 bot.run(config['Tokens']['discord_api_key'])
