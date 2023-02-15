@@ -70,6 +70,11 @@ discord_api_key=THISISYOURDISCORDAPIKEY
 code_exception=Unexpected Error. Call Daigo for help!
 permission_error_admin=Only admins can use this command.
 
+[Strings]
+current_matches_text = Open matches! Please play these as soon as possible!
+upcoming_matches_text = Upcoming matches! Be prepared to play this match!
+stream_matches_text = Stream match! Please wait for a TO to organize this match!
+
 [Options]
 assign_stream_matches_automatically=no
 show_upcoming_matches_while_monitoring=no
