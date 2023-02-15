@@ -57,7 +57,8 @@ async def GetMatches(id):
         # challonge uses negative numbers to describe how deep a losers match is, positive for winners
         for match in matches:
             if match['state'] == 'open':
-                match['seed_total'] = match['player2_seed'] + match['player1_seed']
+                match['seed_total'] = match['player2_seed'] + \
+                    match['player1_seed']
 
             if match['round'] == highest_round:
                 match['round_string'] = 'Grand Finals'
