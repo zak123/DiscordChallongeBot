@@ -1,9 +1,11 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from challonge_helper import *
 import asyncio
 import configparser
 import formatting_helper
+import time
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -28,7 +30,7 @@ async def set(ctx, arg):
             info = await GetTournament(arg)
             current_challonge_id = info['id']
             current_challonge_url = info['full_challonge_url']
-            await ctx.send(f"**{info['name']}** has been set as the current tournament")
+            await ctx.send(f"**{info['full_challonge_url']}** has been set as the current tournament")
         except Exception as err:
             await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
     else:
@@ -42,14 +44,24 @@ async def status(ctx):
     try:
         matches = await GetMatches(current_challonge_id)
 
-        open_matches = matches.get('open_matches')
-        upcoming_matches = matches.get('upcoming_matches')
-        stream_matches = matches.get('stream_matches')
+        if matches != None:
+            open_matches = matches.get('open_matches')
+            upcoming_matches = matches.get('upcoming_matches')
+            stream_matches = matches.get('stream_matches')
 
-        await update_tournament_status_discord_new(ctx, open_matches, "Current Matches", config['Strings']['current_matches_text'])
-        await update_tournament_status_discord_new(ctx, upcoming_matches, "Upcoming Matches", config['Strings']['upcoming_matches_text'])
-        await update_tournament_status_discord_new(ctx, stream_matches, "Stream Matches", config['Strings']['stream_matches_text'])
-        return
+            if len(open_matches) == 0 and len(upcoming_matches) == 0:
+                check_for_end_of_tournament(ctx)
+            if ctx.message.author.guild_permissions.administrator:
+                if len(open_matches) > 0:
+                    await update_tournament_status_discord(ctx, open_matches, config['Strings']['current_matches_title'], config['Strings']['current_matches_description'])
+                if len(upcoming_matches) > 0:
+                    await update_tournament_status_discord(ctx, upcoming_matches, config['Strings']['upcoming_matches_title'], config['Strings']['upcoming_matches_description'])
+                if len(stream_matches) > 0:
+                    await update_tournament_status_discord(ctx, stream_matches, config['Strings']['stream_matches_title'], config['Strings']['stream_matches_description'])
+            return
+        else:
+            await ctx.send(
+                f"Tournament has no matches -- try starting the tournament @ {current_challonge_url}")
     except Exception as err:
         await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
 
@@ -60,43 +72,46 @@ async def monitor_loop(ctx):
     while monitor_enabled:
         matches_new = await GetMatches(current_challonge_id)
 
-        open_matches_new = matches_new.get('open_matches')
-        open_matches_old = matches.get('open_matches')
+        if matches_new != None:
+            open_matches_new = matches_new.get('open_matches')
+            open_matches_old = matches.get('open_matches')
 
-        upcoming_matches_new = matches_new.get('upcoming_matches')
-        upcoming_matches_old = matches.get('upcoming_matches')
+            upcoming_matches_new = matches_new.get('upcoming_matches')
+            upcoming_matches_old = matches.get('upcoming_matches')
 
-        stream_matches_new = matches_new.get('stream_matches')
-        stream_matches_old = matches.get('stream_matches')
-        if open_matches_new != None:
-            print("new", len(open_matches_new))
-        if open_matches_old != None:
-            print("old", len(open_matches_old))
+            stream_matches_new = matches_new.get('stream_matches')
+            stream_matches_old = matches.get('stream_matches')
 
-        if config['Options'].getboolean('only_show_new_matches_while_monitoring'):
+            if len(open_matches_new) == 0 and len(upcoming_matches_new) == 0 and len(stream_matches_new) == 0:
+                await check_for_end_of_tournament(ctx)
+                return
+
             if open_matches_new != open_matches_old:
                 if open_matches_new != None and open_matches_old != None:
                     open_matches_differences = formatting_helper.find_differences(
                         open_matches_new, open_matches_old)
                     if len(open_matches_differences) > 0:
-                        await update_tournament_status_discord_new(ctx, open_matches_differences, "NEW Current Matches", config['Strings']['current_matches_text'])
+                        await update_tournament_status_discord(ctx, open_matches_differences, f"NEW {config['Strings']['current_matches_title']}", config['Strings']['current_matches_description'], True)
             if config['Options'].getboolean('show_upcoming_matches_while_monitoring'):
                 if upcoming_matches_new != upcoming_matches_old:
                     if upcoming_matches_new != None and upcoming_matches_old != None:
                         upcoming_matches_differences = formatting_helper.find_differences(
                             upcoming_matches_new, upcoming_matches_old)
                         if len(upcoming_matches_differences) > 0:
-                            await update_tournament_status_discord_new(ctx, upcoming_matches_differences, "NEW Upcoming Matches", config['Strings']['upcoming_matches_text'])
+                            await update_tournament_status_discord(ctx, upcoming_matches_differences, f"NEW {config['Strings']['upcoming_matches_title']}", config['Strings']['upcoming_matches_description'])
             if stream_matches_new != stream_matches_old:
                 if stream_matches_new != None and stream_matches_old != None:
                     stream_matches_differences = formatting_helper.find_differences(
                         stream_matches_new, stream_matches_old)
                     if len(stream_matches_differences) > 0:
-                        await update_tournament_status_discord_new(ctx, stream_matches_differences, "NEW Stream Matches", config['Strings']['stream_matches_text'])
+                        await update_tournament_status_discord(ctx, stream_matches_differences, f"NEW {config['Strings']['stream_matches_title']}", config['Strings']['stream_matches_description'])
 
-        matches = matches_new
+            matches = matches_new
 
-        await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
+            await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
+        else:
+            await ctx.send(
+                f"Tournament has no matches -- try starting the tournament @ {current_challonge_url}")
 
 
 @bot.command()
@@ -108,7 +123,7 @@ async def monitor(ctx):
         try:
             global monitor_enabled
             monitor_enabled = True
-            await ctx.send('**__Now monitoring the current tournament. Immediately play any matches that are listed here!__**')
+            await ctx.send(f"**Now monitoring {current_challonge_url}**")
             await monitor_loop(ctx)
         except Exception as err:
             await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
@@ -127,7 +142,7 @@ async def stop(ctx):
         await ctx.send(config['ErrorMessages']['permission_error_admin'])
 
 
-async def update_tournament_status_discord_new(ctx, matches, match_category, match_description):
+async def update_tournament_status_discord(ctx, matches, match_category, match_description, include_time=False):
     if (len(matches) > 0):
         # continue
         embed = discord.Embed(
@@ -137,12 +152,19 @@ async def update_tournament_status_discord_new(ctx, matches, match_category, mat
             embed.add_field(name=match['player_vs_string'],
                             value=match['round_string'], inline=True)
 
-        await ctx.send(embed=embed)
+        if ctx.message.author.guild_permissions.administrator:
+            if include_time:
+                t = time.localtime()
+                local_time = time.strftime("%I:%M:%S %p", t)
+                await ctx.send(f"\nNew matches as of {local_time}\n", embed=embed)
+            else:
+                await ctx.send(embed=embed)
+
+        else:
+            await ctx.author.send(embed=embed)
+
     else:
         await ctx.send(f"No {match_category}")
-        # no match error
-
-        # Reusable function that takes in the current matches and spits out upcoming/current matches for discord
 
 
 async def check_for_end_of_tournament(ctx):

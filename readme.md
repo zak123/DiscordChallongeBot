@@ -71,15 +71,17 @@ code_exception=Unexpected Error. Call Daigo for help!
 permission_error_admin=Only admins can use this command.
 
 [Strings]
-current_matches_text = Open matches! Please play these as soon as possible!
-upcoming_matches_text = Upcoming matches! Be prepared to play this match!
-stream_matches_text = Stream match! Please wait for a TO to organize this match!
+current_matches_description = Please play these matches as soon as possible!
+upcoming_matches_description = Be prepared to play these matches!
+stream_matches_description = Please wait for a TO to organize this match!
+current_matches_title = Current matches
+upcoming_matches_title = Upcoming matches
+stream_matches_title = Stream matches
 
 [Options]
 assign_stream_matches_automatically=no
-show_upcoming_matches_while_monitoring=no
-only_show_new_matches_while_monitoring=yes
 show_upcoming_matches=yes
+show_upcoming_matches_while_monitoring=yes
 auto_finalize_tournament_after_grand_finals=yes
 command_prefix=$
 monitor_refresh_interval=15
