@@ -86,12 +86,6 @@ async def monitor_loop(ctx):
                 await check_for_end_of_tournament(ctx)
                 return
 
-            if open_matches_new != open_matches_old:
-                if open_matches_new != None and open_matches_old != None:
-                    open_matches_differences = formatting_helper.find_differences(
-                        open_matches_new, open_matches_old)
-                    if len(open_matches_differences) > 0:
-                        await update_tournament_status_discord(ctx, open_matches_differences, f"NEW {config['Strings']['current_matches_title']}", config['Strings']['current_matches_description'], True)
             if config['Options'].getboolean('show_upcoming_matches_while_monitoring'):
                 if upcoming_matches_new != upcoming_matches_old:
                     if upcoming_matches_new != None and upcoming_matches_old != None:
@@ -99,6 +93,7 @@ async def monitor_loop(ctx):
                             upcoming_matches_new, upcoming_matches_old)
                         if len(upcoming_matches_differences) > 0:
                             await update_tournament_status_discord(ctx, upcoming_matches_differences, f"NEW {config['Strings']['upcoming_matches_title']}", config['Strings']['upcoming_matches_description'])
+
             if stream_matches_new != stream_matches_old:
                 if stream_matches_new != None and stream_matches_old != None:
                     stream_matches_differences = formatting_helper.find_differences(
@@ -106,12 +101,22 @@ async def monitor_loop(ctx):
                     if len(stream_matches_differences) > 0:
                         await update_tournament_status_discord(ctx, stream_matches_differences, f"NEW {config['Strings']['stream_matches_title']}", config['Strings']['stream_matches_description'])
 
+            if open_matches_new != open_matches_old:
+                if open_matches_new != None and open_matches_old != None:
+                    open_matches_differences = formatting_helper.find_differences(
+                        open_matches_new, open_matches_old)
+                    if len(open_matches_differences) > 0:
+                        await update_tournament_status_discord(ctx, open_matches_differences, f"NEW {config['Strings']['current_matches_title']}", config['Strings']['current_matches_description'], True)
+
+
+
             matches = matches_new
 
-            await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
         else:
             await ctx.send(
                 f"Tournament has no matches -- try starting the tournament @ {current_challonge_url}")
+
+        await asyncio.sleep(config['Options'].getfloat('monitor_refresh_interval'))
 
 
 @bot.command()
@@ -137,7 +142,7 @@ async def stop(ctx):
     if ctx.message.author.guild_permissions.administrator:
         global monitor_enabled
         monitor_enabled = False
-        await ctx.send('No longer monitoring the current tournament. Use $monitor to enable tournament monitoring.')
+        await ctx.send(f"No longer monitoring the current tournament. Use {config['Options']['command_prefix']}monitor to enable tournament monitoring.")
     else:
         await ctx.send(config['ErrorMessages']['permission_error_admin'])
 
@@ -168,26 +173,26 @@ async def update_tournament_status_discord(ctx, matches, match_category, match_d
 
 
 async def check_for_end_of_tournament(ctx):
-    info = await GetTournament(current_challonge_id)
+    try:
+        info = await GetTournament(current_challonge_id)
 
-    if info['state'] == 'awaiting_review' or info['state'] == 'complete':
-        if info['state'] == 'awaiting_review' and config['Options'].getboolean('auto_finalize_tournament_after_grand_finals'):
-            await EndTournament(current_challonge_id)
-        else:
-            return await ctx.send('Please finalize the tournament by clicking "End the tournament" on challonge, tournamentor will display results once finalized.')
+        if info['state'] == 'awaiting_review' or info['state'] == 'complete':
+            if info['state'] == 'awaiting_review' and config['Options'].getboolean('auto_finalize_tournament_after_grand_finals'):
+                await EndTournament(current_challonge_id)
+            else:
+                return await ctx.send('Please finalize the tournament by clicking "End the tournament" on challonge, tournamentor will display results once finalized.')
 
-        results = await GetParticipants(current_challonge_id)
-        results.sort(key=lambda x: x['final_rank'], reverse=False)
-        results_message = 'The tournament is over! Thank you for playing!\n```'
-        for result in results:
-            results_message += f"#{result['final_rank']} - {result['name']}\n"
+            results = await GetParticipants(current_challonge_id)
+            results.sort(key=lambda x: x['final_rank'], reverse=False)
+            results_message = 'The tournament is over! Thank you for playing!\n```'
+            for result in results:
+                results_message += f"#{result['final_rank']} - {result['name']}\n"
 
-        await ctx.send(f"{results_message}```\nStopping monitoring for this tournament. Congratulations to the winner!")
-        global monitor_enabled
-        monitor_enabled = False
-
-    # except Exception as err:
-    #     await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
+            await ctx.send(f"{results_message}```\nStopping monitoring for this tournament. Congratulations to the winner!")
+            global monitor_enabled
+            monitor_enabled = False
+    except Exception as err:
+        await ctx.send(f"{config['ErrorMessages']['code_exception']} ```{err}```")
 
 
 bot.run(config['Tokens']['discord_api_key'])
