@@ -7,10 +7,9 @@ config.read('config.ini')
 challonge.set_credentials(
     config['Tokens']['challonge_username'], config['Tokens']['challonge_api_key'])
 
+# { <challonge_name>: [<discord_id>, <discord_id>] }
+challonge_to_discord_lookup = {}
 
-# Tell pychallonge about your [CHALLONGE! API credentials](http://api.challonge.com/v1).
-
-# Retrieve a tournament by its id (or its url).
 
 async def GetTournament(id):
     return challonge.tournaments.show(id)
@@ -26,17 +25,66 @@ async def EndTournament(id):
 
 
 async def GetParticipants(id):
-    return challonge.participants.index(id)
+    global current_tournament_participants
+    current_tournament_participants = challonge.participants.index(id)
+    return current_tournament_participants
 
 
-# async def ReportMatch(tournament_id, match_id, scores_csv):
-#     print(tournament_id, match_id, scores_csv)
-#     params = {'match[scores_csv]': f"{scores_csv}"}
-#     return challonge.matches.update(tournament_id, match_id, params=params)
+async def CheckMatchesForNotification(matches):
+    discord_ids_to_notify = []
+    for match in matches:
+        if match['player1_name'] in challonge_to_discord_lookup:
+            discord_ids_to_notify.extend(
+                challonge_to_discord_lookup.get(match['player1_name']))
+        if match['player2_name'] in challonge_to_discord_lookup:
+            discord_ids_to_notify.extend(
+                challonge_to_discord_lookup.get(match['player2_name']))
+    return discord_ids_to_notify
+
+
+async def AddChallongeToDiscordLookup(discord_id, challonge_name):
+    global challonge_to_discord_lookup
+    discord_ids = challonge_to_discord_lookup.get(challonge_name)
+    if discord_ids != None:
+        if discord_id not in discord_ids:
+            discord_ids.append(discord_id)
+            challonge_to_discord_lookup[challonge_name] = discord_ids
+        else:
+            return f"You are already subscribed to matches {challonge_name} plays."
+    else:
+        challonge_to_discord_lookup[challonge_name] = [discord_id]
+    return f"You are now subscribed to matches {challonge_name} plays in the current tournament."
+
+
+async def RemoveChallongeToDiscordLookup(discord_id, challonge_name):
+    global challonge_to_discord_lookup
+    discord_ids = challonge_to_discord_lookup.get(challonge_name)
+    if discord_ids != None:
+        if discord_id in discord_ids:
+            discord_ids.remove(discord_id)
+    return f"You are now unsubscribed from matches {challonge_name} plays."
+
+
+async def GetChallongeToDiscordLookup(challonge_name):
+    global challonge_to_discord_lookup
+    return challonge_to_discord_lookup.get(challonge_name)
+
+async def ClearChallongeToDiscordLookup():
+    global challonge_to_discord_lookup
+    challonge_to_discord_lookup = {}
+    
+# async def check_notifications(matches):
+
+#     for match in matches:
+#         if match['player1_name']
 
 
 async def GetMatches(id):
     participants = challonge.participants.index(id)
+
+    global current_tournament_participants
+    current_tournament_participants = participants
+
     matches = challonge.matches.index(id)
     # match ID's with names and add names to match list
     if (len(matches) > 0):

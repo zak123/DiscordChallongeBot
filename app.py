@@ -5,7 +5,7 @@ from challonge_helper import *
 import asyncio
 import configparser
 import formatting_helper
-import time
+import datetime
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -38,6 +38,19 @@ async def set(ctx, arg):
 
 
 @bot.command()
+async def sub(ctx, arg):
+    # TODO: subscribe the user who called this to matches that include the name provided in the arg
+    await ctx.author.send(await AddChallongeToDiscordLookup(ctx.message.author.id, arg))
+
+
+@bot.command()
+async def unsub(ctx, arg):
+    await ctx.author.send(await RemoveChallongeToDiscordLookup(ctx.message.author.id, arg))
+
+@bot.command()
+
+
+@bot.command()
 async def status(ctx):
     if current_challonge_id == 0:
         return await ctx.send('Please set a tournament with $set url/id')
@@ -51,13 +64,15 @@ async def status(ctx):
 
             if len(open_matches) == 0 and len(upcoming_matches) == 0:
                 check_for_end_of_tournament(ctx)
-            if ctx.message.author.guild_permissions.administrator:
-                if len(open_matches) > 0:
-                    await update_tournament_status_discord(ctx, open_matches, config['Strings']['current_matches_title'], config['Strings']['current_matches_description'])
-                if len(upcoming_matches) > 0:
-                    await update_tournament_status_discord(ctx, upcoming_matches, config['Strings']['upcoming_matches_title'], config['Strings']['upcoming_matches_description'])
-                if len(stream_matches) > 0:
-                    await update_tournament_status_discord(ctx, stream_matches, config['Strings']['stream_matches_title'], config['Strings']['stream_matches_description'])
+
+            public_post = ctx.message.author.guild_permissions.administrator
+
+            if len(open_matches) > 0:
+                await update_tournament_status_discord(ctx, open_matches, config['Strings']['current_matches_title'], config['Strings']['current_matches_description'], public_post)
+            if len(upcoming_matches) > 0:
+                await update_tournament_status_discord(ctx, upcoming_matches, config['Strings']['upcoming_matches_title'], config['Strings']['upcoming_matches_description'], public_post)
+            if len(stream_matches) > 0:
+                await update_tournament_status_discord(ctx, stream_matches, config['Strings']['stream_matches_title'], config['Strings']['stream_matches_description'], public_post)
             return
         else:
             await ctx.send(
@@ -92,14 +107,14 @@ async def monitor_loop(ctx):
                         upcoming_matches_differences = formatting_helper.find_differences(
                             upcoming_matches_new, upcoming_matches_old)
                         if len(upcoming_matches_differences) > 0:
-                            await update_tournament_status_discord(ctx, upcoming_matches_differences, f"NEW {config['Strings']['upcoming_matches_title']}", config['Strings']['upcoming_matches_description'])
+                            await update_tournament_status_discord(ctx, upcoming_matches_differences, f"NEW {config['Strings']['upcoming_matches_title']}", config['Strings']['upcoming_matches_description'], True)
 
             if stream_matches_new != stream_matches_old:
                 if stream_matches_new != None and stream_matches_old != None:
                     stream_matches_differences = formatting_helper.find_differences(
                         stream_matches_new, stream_matches_old)
                     if len(stream_matches_differences) > 0:
-                        await update_tournament_status_discord(ctx, stream_matches_differences, f"NEW {config['Strings']['stream_matches_title']}", config['Strings']['stream_matches_description'])
+                        await update_tournament_status_discord(ctx, stream_matches_differences, f"NEW {config['Strings']['stream_matches_title']}", config['Strings']['stream_matches_description'], True)
 
             if open_matches_new != open_matches_old:
                 if open_matches_new != None and open_matches_old != None:
@@ -107,8 +122,9 @@ async def monitor_loop(ctx):
                         open_matches_new, open_matches_old)
                     if len(open_matches_differences) > 0:
                         await update_tournament_status_discord(ctx, open_matches_differences, f"NEW {config['Strings']['current_matches_title']}", config['Strings']['current_matches_description'], True)
-
-
+                        discord_ids_to_notify = await CheckMatchesForNotification(open_matches_differences)
+                        for discord_id in discord_ids_to_notify:
+                            await update_tournament_status_discord(ctx, open_matches_differences, f"{config['Strings']['current_matches_title']}", config['Strings']['current_match_notification_description'], False, discord_id)
 
             matches = matches_new
 
@@ -147,9 +163,8 @@ async def stop(ctx):
         await ctx.send(config['ErrorMessages']['permission_error_admin'])
 
 
-async def update_tournament_status_discord(ctx, matches, match_category, match_description, include_time=False):
+async def update_tournament_status_discord(ctx, matches, match_category, match_description, public_post=False, discord_id=None):
     if (len(matches) > 0):
-        # continue
         embed = discord.Embed(
             title=match_category, url=current_challonge_url, description=match_description
         )
@@ -157,15 +172,22 @@ async def update_tournament_status_discord(ctx, matches, match_category, match_d
             embed.add_field(name=match['player_vs_string'],
                             value=match['round_string'], inline=True)
 
-        if ctx.message.author.guild_permissions.administrator:
-            if include_time:
-                t = time.localtime()
-                local_time = time.strftime("%I:%M:%S %p", t)
-                await ctx.send(f"\nNew matches as of {local_time}\n", embed=embed)
-            else:
-                await ctx.send(embed=embed)
+        embed.timestamp = datetime.datetime.now()
 
-        else:
+        match match_category:
+            case "Current Matches":
+                embed.color = "#FF0000"
+            case "Upcoming Matches":
+                embed.color = "#0000FF"
+            case "Stream Matches":
+                embed.color = "#A020F0"
+
+        if public_post:
+            await ctx.send(embed=embed)
+        if discord_id != None:
+            user = await bot.fetch_user(discord_id)
+            await user.send(embed=embed)
+        elif discord_id == None and not public_post:
             await ctx.author.send(embed=embed)
 
     else:
@@ -184,11 +206,11 @@ async def check_for_end_of_tournament(ctx):
 
             results = await GetParticipants(current_challonge_id)
             results.sort(key=lambda x: x['final_rank'], reverse=False)
-            results_message = 'The tournament is over! Thank you for playing!\n```'
+            results_message = '\n```'
             for result in results:
                 results_message += f"#{result['final_rank']} - {result['name']}\n"
 
-            await ctx.send(f"{results_message}```\nStopping monitoring for this tournament. Congratulations to the winner!")
+            await ctx.send(f"{results_message}```\nCongratulations to the winner!")
             global monitor_enabled
             monitor_enabled = False
     except Exception as err:
